@@ -4,6 +4,7 @@ import re
 import time
 from mpi4py import MPI
 import queue
+import json
 
 
 def get_sentiment_pattern(sentiment_scores):
@@ -103,6 +104,14 @@ def get_cell_score2(coordinates,text,sentiment_scores,grid):
     cell = util.get_cell((x,y),grid)
     return(cell,score)
 
+def in_grid(coordinates):
+    x, y = coordinates
+    if (144.7<x<=145.0 and -37.95<y<=-37.5) or (145.0<x<=145.3 and -38.1<y<=-37.5) or (145.3<x<=145.45 and -38.1<y<=-37.8):
+        return True
+    else:
+        return False
+
+
 ###
 ### MPI functions
 ### master node to allocate jobs and integrate results from slave nodes
@@ -110,27 +119,31 @@ def get_cell_score2(coordinates,text,sentiment_scores,grid):
 ### grid and sentiment score is loaded in each slave nodes due to limitation of sended package size
 ###
 
-def master(data_path,twitter_size):
+def master(data_path):
     status = MPI.Status()
 
-    small_twitter = util.load_twitter_data(data_path, twitter_size)
-    tweets = small_twitter['rows']
 
     i = 1+size # slave node index starts from 1
     result = {}
-
-    for tweet in tweets:# send slave nodes one tweet info once a time
-        coordinates = tweet['value']['geometry']['coordinates']
-        text = tweet['doc']['text']
-        job = (coordinates,text)
-        if(i%size==0):
-            i+=1 #avoid sending job to master node,
-                # slave node 1 can have more jobs because of this sentence
-                # all jobs expected to send to master node is sended to slave node 1
-            send = comm.send(job, dest=i%size, tag=1)
-        else:
-            send = comm.send(job, dest=i%size, tag=1)
-            i+=1
+    with open(data_path) as f:
+        for line in f:# send slave nodes one tweet info once a time
+            try:
+                tweet = json.loads(line.strip(',\n'))
+                coordinates = tweet['value']['geometry']['coordinates']
+                if not in_grid(coordinates):
+                    continue
+                text = tweet['doc']['text']
+                job = (coordinates,text)
+                if(i%size==0):
+                    i+=1 #avoid sending job to master node,
+                        # slave node 1 can have more jobs because of this sentence
+                        # all jobs expected to send to master node is sended to slave node 1
+                    send = comm.send(job, dest=i%size, tag=1)
+                else:
+                    send = comm.send(job, dest=i%size, tag=1)
+                    i+=1
+            except Exception as e:
+                continue
 
     #collect message from slave nodes
     i=1
@@ -171,7 +184,7 @@ def slave(data_path):
 
 if __name__ == '__main__':
     start = time.time()
-    data_path = '/home/zhelin'
+    data_path = '../bigTwitter.json'
     #data_path = '.\data'
     #sentiment_scores = util.get_sentiment_socres(data_path)
     #melb_grid = util.get_melb_grid(data_path)
@@ -205,9 +218,9 @@ if __name__ == '__main__':
 
     result = {}
     if rank == 0:
-        result = master(data_path,'small')
+        result = master(data_path)
     else:
-        slave(data_path)
+        slave('../')
 
     end = time.time()
     print(result)
