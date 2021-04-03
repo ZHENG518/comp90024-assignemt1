@@ -160,8 +160,6 @@ def slave(data_path):
 
 if __name__ == '__main__':
 
-    start = time.time()
-    data_path = '/home/zhelin'
     #data_path = '.\data'
     #sentiment_scores = util.get_sentiment_socres(data_path)
     #melb_grid = util.get_melb_grid(data_path)
@@ -188,8 +186,9 @@ if __name__ == '__main__':
     ###
     # run by command below in terminal
     # mpiexec -n 8 python main.py
+    
     start = time.time()
-    data_path = './data'
+    data_path = '/home/zhelin'
     twitter_size = 'small'
     comm = MPI.COMM_WORLD
     size = comm.Get_size()
