@@ -1,8 +1,11 @@
 from src import util
 import re
+
 import time
 from mpi4py import MPI
 import queue
+import json
+
 
 def get_sentiment_pattern(sentiment_scores):
     phrases,words = util.get_phrases(sentiment_scores)
@@ -25,7 +28,10 @@ def preprocess_text(text):
     sub_text2 = re.sub(pattern2,'',sub_text)
     return sub_text2
 
+
 '''def get_coordinate_score_dic(twitter_dic,sentiment_scores):
+
+
     sentiment_pattern = get_sentiment_pattern(sentiment_scores)
     tweets = twitter_dic['rows']
     dic = {}
@@ -35,16 +41,20 @@ def preprocess_text(text):
         text = preprocess_text(tweet['doc']['text'])
         #tweets may be posed in the same coordinate
         dic[(x,y)] = dic.get((x,y), 0) + get_score(text, sentiment_pattern, sentiment_scores)
+
     return dic'''
 
 '''def get_cell_score_dic(coordinate_score,grid):
+
     dic = {}
     for key, score in coordinate_score.items():
         cell = util.get_cell(key,grid)
         dic[cell] = dic.get(cell, 0) + score
+
     return dic'''
 
-def get_cell_textlist(twitter_dic,grid):
+'''def get_cell_textlist(twitter_dic,grid):
+
     tweets = twitter_dic['rows']
     dic = {}
     for tweet in tweets:
@@ -57,9 +67,10 @@ def get_cell_textlist(twitter_dic,grid):
         else:
             dic[cell] = [text]
 
-    return dic
+    return dic'''
 
-def get_cell_score(cell_textlist,sentiment_scores):
+'''def get_cell_score(cell_textlist,sentiment_scores):
+
     sentiment_pattern = get_sentiment_pattern(sentiment_scores)
     dic = cell_textlist
     for key, textlist in cell_textlist.items():
@@ -67,8 +78,9 @@ def get_cell_score(cell_textlist,sentiment_scores):
         num = len(textlist)
         for text in textlist:
             score += get_score(text, sentiment_pattern, sentiment_scores)
-        dic[key] = [num,score]
-    return dic
+        dic[key] = (num,score)
+
+    return dic'''
 
 '''def get_cell_text(twitter_dic,grid):
     tweets = twitter_dic['rows']
@@ -92,6 +104,14 @@ def get_cell_score2(coordinates,text,sentiment_scores,grid):
     cell = util.get_cell((x,y),grid)
     return(cell,score)
 
+def in_grid(coordinates):
+    x, y = coordinates
+    if (144.7<x<=145.0 and -37.95<y<=-37.5) or (145.0<x<=145.3 and -38.1<y<=-37.5) or (145.3<x<=145.45 and -38.1<y<=-37.8):
+        return True
+    else:
+        return False
+
+
 ###
 ### MPI functions
 ### master node to allocate jobs and integrate results from slave nodes
@@ -99,27 +119,31 @@ def get_cell_score2(coordinates,text,sentiment_scores,grid):
 ### grid and sentiment score is loaded in each slave nodes due to limitation of sended package size
 ###
 
-def master(data_path,twitter_size):
+def master(data_path):
     status = MPI.Status()
 
-    small_twitter = util.load_twitter_data(data_path, twitter_size)
-    tweets = small_twitter['rows']
 
     i = 1+size # slave node index starts from 1
     result = {}
-
-    for tweet in tweets:# send slave nodes one tweet info once a time
-        coordinates = tweet['value']['geometry']['coordinates']
-        text = tweet['doc']['text']
-        job = (coordinates,text)
-        if(i%size==0):
-            i+=1 #avoid sending job to master node,
-                # slave node 1 can have more jobs because of this sentence
-                # all jobs expected to send to master node is sended to slave node 1
-            send = comm.send(job, dest=i%size, tag=1)
-        else:
-            send = comm.send(job, dest=i%size, tag=1)
-            i+=1
+    with open(data_path) as f:
+        for line in f:# send slave nodes one tweet info once a time
+            try:
+                tweet = json.loads(line.strip(',\n'))
+                coordinates = tweet['value']['geometry']['coordinates']
+                if not in_grid(coordinates):
+                    continue
+                text = tweet['doc']['text']
+                job = (coordinates,text)
+                if(i%size==0):
+                    i+=1 #avoid sending job to master node,
+                        # slave node 1 can have more jobs because of this sentence
+                        # all jobs expected to send to master node is sended to slave node 1
+                    send = comm.send(job, dest=i%size, tag=1)
+                else:
+                    send = comm.send(job, dest=i%size, tag=1)
+                    i+=1
+            except Exception as e:
+                continue
 
     #collect message from slave nodes
     i=1
@@ -159,8 +183,8 @@ def slave(data_path):
     send = comm.send(result_dic,dest = 0,tag=1)
 
 if __name__ == '__main__':
+    start = time.time()
 
-    #data_path = '.\data'
     #sentiment_scores = util.get_sentiment_socres(data_path)
     #melb_grid = util.get_melb_grid(data_path)
     # cell_name = util.get_cell([144.97505587, -37.87538373], melb_grid)  # C2
@@ -186,27 +210,16 @@ if __name__ == '__main__':
     ###
     # run by command below in terminal
     # mpiexec -n 8 python main.py
-    
-    start = time.time()
-    data_path = '/home/zhelin'
-    twitter_size = 'small'
+
     comm = MPI.COMM_WORLD
     size = comm.Get_size()
     rank = comm.Get_rank()
 
     result = {}
-    if size == 1:#if only have 1 node
-        small_twitter = util.load_twitter_data(data_path, twitter_size)
-        tweets = small_twitter['rows']
-        sentiment_scores = util.get_sentiment_socres(data_path)
-        melb_grid = util.get_melb_grid(data_path)
-        temp = get_cell_textlist(small_twitter,melb_grid)
-        result = get_cell_score(temp,sentiment_scores)
-    else: #mutliple nodes
-        if rank == 0:
-            result = master(data_path,twitter_size)
-        else:
-            slave(data_path)
+    if rank == 0:
+        result = master('../bigTwitter.json')
+    else:
+        slave('../')
 
     end = time.time()
     print(result)
