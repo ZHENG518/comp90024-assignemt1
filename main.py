@@ -1,8 +1,10 @@
 from src import util
 import re
+
 import time
 from mpi4py import MPI
 import queue
+
 
 def get_sentiment_pattern(sentiment_scores):
     phrases,words = util.get_phrases(sentiment_scores)
@@ -25,7 +27,10 @@ def preprocess_text(text):
     sub_text2 = re.sub(pattern2,'',sub_text)
     return sub_text2
 
+
 '''def get_coordinate_score_dic(twitter_dic,sentiment_scores):
+
+
     sentiment_pattern = get_sentiment_pattern(sentiment_scores)
     tweets = twitter_dic['rows']
     dic = {}
@@ -35,16 +40,20 @@ def preprocess_text(text):
         text = preprocess_text(tweet['doc']['text'])
         #tweets may be posed in the same coordinate
         dic[(x,y)] = dic.get((x,y), 0) + get_score(text, sentiment_pattern, sentiment_scores)
+
     return dic'''
 
 '''def get_cell_score_dic(coordinate_score,grid):
+
     dic = {}
     for key, score in coordinate_score.items():
         cell = util.get_cell(key,grid)
         dic[cell] = dic.get(cell, 0) + score
+
     return dic'''
 
 '''def get_cell_textlist(twitter_dic,grid):
+
     tweets = twitter_dic['rows']
     dic = {}
     for tweet in tweets:
@@ -60,6 +69,7 @@ def preprocess_text(text):
     return dic'''
 
 '''def get_cell_score(cell_textlist,sentiment_scores):
+
     sentiment_pattern = get_sentiment_pattern(sentiment_scores)
     dic = cell_textlist
     for key, textlist in cell_textlist.items():
@@ -68,6 +78,7 @@ def preprocess_text(text):
         for text in textlist:
             score += get_score(text, sentiment_pattern, sentiment_scores)
         dic[key] = (num,score)
+
     return dic'''
 
 '''def get_cell_text(twitter_dic,grid):
