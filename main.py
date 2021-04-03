@@ -184,8 +184,7 @@ def slave(data_path):
 
 if __name__ == '__main__':
     start = time.time()
-    data_path = '../bigTwitter.json'
-    #data_path = '.\data'
+
     #sentiment_scores = util.get_sentiment_socres(data_path)
     #melb_grid = util.get_melb_grid(data_path)
     # cell_name = util.get_cell([144.97505587, -37.87538373], melb_grid)  # C2
@@ -218,7 +217,7 @@ if __name__ == '__main__':
 
     result = {}
     if rank == 0:
-        result = master(data_path)
+        result = master('../bigTwitter.json')
     else:
         slave('../')
 
