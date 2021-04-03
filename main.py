@@ -1,10 +1,8 @@
 from src import util
 import re
-
 import time
 from mpi4py import MPI
 import queue
-
 
 def get_sentiment_pattern(sentiment_scores):
     phrases,words = util.get_phrases(sentiment_scores)
@@ -27,10 +25,7 @@ def preprocess_text(text):
     sub_text2 = re.sub(pattern2,'',sub_text)
     return sub_text2
 
-
 '''def get_coordinate_score_dic(twitter_dic,sentiment_scores):
-
-
     sentiment_pattern = get_sentiment_pattern(sentiment_scores)
     tweets = twitter_dic['rows']
     dic = {}
@@ -40,20 +35,16 @@ def preprocess_text(text):
         text = preprocess_text(tweet['doc']['text'])
         #tweets may be posed in the same coordinate
         dic[(x,y)] = dic.get((x,y), 0) + get_score(text, sentiment_pattern, sentiment_scores)
-
     return dic'''
 
 '''def get_cell_score_dic(coordinate_score,grid):
-
     dic = {}
     for key, score in coordinate_score.items():
         cell = util.get_cell(key,grid)
         dic[cell] = dic.get(cell, 0) + score
-
     return dic'''
 
-'''def get_cell_textlist(twitter_dic,grid):
-
+def get_cell_textlist(twitter_dic,grid):
     tweets = twitter_dic['rows']
     dic = {}
     for tweet in tweets:
@@ -66,10 +57,9 @@ def preprocess_text(text):
         else:
             dic[cell] = [text]
 
-    return dic'''
+    return dic
 
-'''def get_cell_score(cell_textlist,sentiment_scores):
-
+def get_cell_score(cell_textlist,sentiment_scores):
     sentiment_pattern = get_sentiment_pattern(sentiment_scores)
     dic = cell_textlist
     for key, textlist in cell_textlist.items():
@@ -77,9 +67,8 @@ def preprocess_text(text):
         num = len(textlist)
         for text in textlist:
             score += get_score(text, sentiment_pattern, sentiment_scores)
-        dic[key] = (num,score)
-
-    return dic'''
+        dic[key] = [num,score]
+    return dic
 
 '''def get_cell_text(twitter_dic,grid):
     tweets = twitter_dic['rows']
@@ -170,6 +159,7 @@ def slave(data_path):
     send = comm.send(result_dic,dest = 0,tag=1)
 
 if __name__ == '__main__':
+
     start = time.time()
     data_path = '/home/zhelin'
     #data_path = '.\data'
@@ -198,16 +188,26 @@ if __name__ == '__main__':
     ###
     # run by command below in terminal
     # mpiexec -n 8 python main.py
-
+    start = time.time()
+    data_path = './data'
+    twitter_size = 'small'
     comm = MPI.COMM_WORLD
     size = comm.Get_size()
     rank = comm.Get_rank()
 
     result = {}
-    if rank == 0:
-        result = master(data_path,'small')
-    else:
-        slave(data_path)
+    if size == 1:#if only have 1 node
+        small_twitter = util.load_twitter_data(data_path, twitter_size)
+        tweets = small_twitter['rows']
+        sentiment_scores = util.get_sentiment_socres(data_path)
+        melb_grid = util.get_melb_grid(data_path)
+        temp = get_cell_textlist(small_twitter,melb_grid)
+        result = get_cell_score(temp,sentiment_scores)
+    else: #mutliple nodes
+        if rank == 0:
+            result = master(data_path,twitter_size)
+        else:
+            slave(data_path)
 
     end = time.time()
     print(result)
