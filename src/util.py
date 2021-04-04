@@ -27,6 +27,7 @@ def get_melb_grid(data_path):
 
 def get_cell(coordinate, grid):
     """get the cell name according to the location(x,y)"""
+    x,y = None,None
     for x_cell, x_range in grid['x'].items():
         if x_range[0] < coordinate[0] <= x_range[1]:
             x = x_cell
@@ -35,7 +36,10 @@ def get_cell(coordinate, grid):
         if y_range[0] < coordinate[1] <= y_range[1]:
             y = y_cell
             break
-    return y+x
+    if x and y:
+        return y+x
+    else:
+        return None
 
 def get_phrases(sentiment_scores):
     phrases = {}
